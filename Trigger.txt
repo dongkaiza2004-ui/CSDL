@@ -1,4 +1,4 @@
-DELIMITER $$
+DELIMITER $
 
 CREATE TRIGGER check_do_tuoi_BEFORE_INSERT
 BEFORE INSERT ON Ve
@@ -121,6 +121,7 @@ BEGIN
         SET MESSAGE_TEXT = 'So ve da dat toi da so ghe cua phong chieu!';
     END IF;
 END$
+
 CREATE TRIGGER check_ca_lam_viec_BEFORE_INSERT
 BEFORE INSERT ON PhanCong
 FOR EACH ROW
@@ -146,8 +147,6 @@ BEGIN
     END IF;
 END$
 
-DELIMITER $$
-
 CREATE TRIGGER check_phong_bao_tri
 BEFORE INSERT ON SuatChieu
 FOR EACH ROW
@@ -165,7 +164,7 @@ BEGIN
         SET MESSAGE_TEXT = 'Phong dang bao tri, khong the tao suat chieu';
     END IF;
 
-END$$
+END$
 
 
 CREATE TRIGGER check_so_nhan_vien
@@ -198,6 +197,7 @@ BEGIN
         SET MESSAGE_TEXT = 'Toi da 3 nhan vien ky thuat trong 1 suat chieu';
     END IF;
 
-END$$
+END$
 
 DELIMITER ;
+
