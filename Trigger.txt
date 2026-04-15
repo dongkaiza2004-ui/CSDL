@@ -1,0 +1,204 @@
+CREATE TRIGGER check_do_tuoi_BEFORE_INSERT
+BEFORE INSERT ON Ve
+FOR EACH ROW
+BEGIN
+    DECLARE tuoi_toi_thieu INT;
+    DECLARE ngay_sinh_kh DATE;
+    DECLARE tuoi_kh INT;
+    DECLARE gioi_han VARCHAR(5);
+    DECLARE ngay_chieu DATE;
+
+    SELECT p.gioi_han_do_tuoi, sc.ngay_chieu 
+        INTO gioi_han, ngay_chieu
+    FROM SuatChieu sc
+    JOIN Phim p ON sc.ma_phim = p.ma_phim
+    WHERE sc.ma_suat_chieu = NEW.ma_suat_chieu;
+
+    SELECT ngay_sinh INTO ngay_sinh_kh
+    FROM KhachHang
+    WHERE ma_khach_hang = NEW.ma_khach_hang;
+
+    SET tuoi_kh = TIMESTAMPDIFF(YEAR, ngay_sinh_kh, ngay_chieu);
+
+    SET tuoi_toi_thieu = CASE gioi_han
+        WHEN 'P'   THEN 0
+        WHEN 'C13' THEN 13
+        WHEN 'C16' THEN 16
+        WHEN 'C18' THEN 18
+        ELSE 0
+    END;
+
+    IF tuoi_kh < tuoi_toi_thieu THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Khach hang khong du tuoi xem phim nay!';
+    END IF;
+END$
+
+CREATE TRIGGER check_gioi_han_ve_BEFORE_INSERT
+BEFORE INSERT ON Ve
+FOR EACH ROW
+BEGIN
+    DECLARE ve_count INT;
+
+    SELECT COUNT(*) INTO ve_count
+    FROM Ve
+    WHERE ma_suat_chieu = NEW.ma_suat_chieu
+      AND ma_khach_hang = NEW.ma_khach_hang;
+
+    IF ve_count >= 10 THEN
+        SIGNAL SQLSTATE '45001'
+        SET MESSAGE_TEXT = 'Khach hang chi duoc mua toi da 10 ve cho mot suat chieu!';
+    END IF;
+END$
+
+CREATE TRIGGER check_suat_chieu_BEFORE_INSERT
+BEFORE INSERT ON SuatChieu
+FOR EACH ROW
+BEGIN
+    DECLARE suat_count INT;
+    DECLARE conflict_count INT;
+
+    SELECT COUNT(*) INTO suat_count
+    FROM SuatChieu
+    WHERE ma_phong = NEW.ma_phong
+      AND ngay_chieu = NEW.ngay_chieu;
+
+    IF suat_count >= 10 THEN
+        SIGNAL SQLSTATE '45002'
+        SET MESSAGE_TEXT = 'Phong chieu da dat toi da 10 suat chieu trong ngay!';
+    END IF;
+
+    SELECT COUNT(*) INTO conflict_count
+    FROM SuatChieu sc
+    JOIN Phim p ON sc.ma_phim = p.ma_phim
+    WHERE sc.ma_phong = NEW.ma_phong
+      AND sc.ngay_chieu = NEW.ngay_chieu
+      AND (
+        NEW.thoi_gian_bat_dau < ADDTIME(sc.thoi_gian_bat_dau, 
+            SEC_TO_TIME((p.thoi_luong + 20) * 60))
+        AND
+        ADDTIME(NEW.thoi_gian_bat_dau, SEC_TO_TIME(
+            (SELECT thoi_luong FROM Phim WHERE ma_phim = NEW.ma_phim) * 60
+        )) > sc.thoi_gian_bat_dau
+      );
+
+    IF conflict_count > 0 THEN
+        SIGNAL SQLSTATE '45003'
+        SET MESSAGE_TEXT = 'Suat chieu phai cach suat truoc it nhat 20 phut!';
+    END IF;
+END$
+
+CREATE TRIGGER check_thoi_luong_BEFORE_INSERT
+BEFORE INSERT ON Phim
+FOR EACH ROW
+BEGIN
+    IF NEW.thoi_luong < 60 OR NEW.thoi_luong > 210 THEN
+        SIGNAL SQLSTATE '45004'
+        SET MESSAGE_TEXT = 'Thoi luong phim phai tu 60 den 210 phut!';
+    END IF;
+END$
+
+CREATE TRIGGER check_so_ve_BEFORE_INSERT
+BEFORE INSERT ON Ve
+FOR EACH ROW
+BEGIN
+    DECLARE so_ghe INT;
+    DECLARE so_ve_da_ban INT;
+
+    SELECT pc.so_luong_ghe INTO so_ghe
+    FROM SuatChieu sc
+    JOIN PhongChieu pc ON sc.ma_phong = pc.ma_phong
+    WHERE sc.ma_suat_chieu = NEW.ma_suat_chieu;
+
+    SELECT COUNT(*) INTO so_ve_da_ban
+    FROM Ve
+    WHERE ma_suat_chieu = NEW.ma_suat_chieu;
+
+    IF so_ve_da_ban >= so_ghe THEN
+        SIGNAL SQLSTATE '45005'
+        SET MESSAGE_TEXT = 'So ve da dat toi da so ghe cua phong chieu!';
+    END IF;
+END$
+CREATE TRIGGER check_ca_lam_viec_BEFORE_INSERT
+BEFORE INSERT ON PhanCong
+FOR EACH ROW
+BEGIN
+    DECLARE so_ca INT;
+    DECLARE ngay_moi DATE;
+
+    -- Lấy ngày chiếu của suất chiếu mới
+    SELECT ngay_chieu INTO ngay_moi
+    FROM SuatChieu
+    WHERE ma_suat_chieu = NEW.ma_suat_chieu;
+
+    -- Đếm số suất chiếu nhân viên này đã được phân công trong ngày đó
+    SELECT COUNT(*) INTO so_ca
+    FROM PhanCong pc
+    JOIN SuatChieu sc ON pc.ma_suat_chieu = sc.ma_suat_chieu
+    WHERE pc.ma_nhan_vien = NEW.ma_nhan_vien
+      AND sc.ngay_chieu = ngay_moi;
+
+    IF so_ca >= 2 THEN
+        SIGNAL SQLSTATE '45006'
+        SET MESSAGE_TEXT = 'Nhan vien khong duoc lam qua 2 ca trong mot ngay!';
+    END IF;
+END$
+
+DELIMITER $$
+
+CREATE TRIGGER check_phong_bao_tri
+BEFORE INSERT ON SuatChieu
+FOR EACH ROW
+BEGIN
+    DECLARE v_tinh_trang VARCHAR(50);
+
+    -- Lấy trạng thái phòng
+    SELECT tinh_trang_thiet_bi INTO v_tinh_trang
+    FROM PhongChieu
+    WHERE ma_phong = NEW.ma_phong;
+
+    -- Kiểm tra
+    IF v_tinh_trang = 'bao_tri' THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Phong dang bao tri, khong the tao suat chieu';
+    END IF;
+
+END$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE TRIGGER check_so_nhan_vien
+BEFORE INSERT ON PhanCong
+FOR EACH ROW
+BEGIN
+    DECLARE v_chuc_vu VARCHAR(50);
+    DECLARE so_luong INT;
+
+    -- Lấy chức vụ nhân viên
+    SELECT chuc_vu INTO v_chuc_vu
+    FROM NhanVien
+    WHERE ma_nhan_vien = NEW.ma_nhan_vien;
+
+    -- Đếm số nhân viên cùng chức vụ trong suất chiếu
+    SELECT COUNT(*) INTO so_luong
+    FROM PhanCong pc
+    JOIN NhanVien nv ON pc.ma_nhan_vien = nv.ma_nhan_vien
+    WHERE pc.ma_suat_chieu = NEW.ma_suat_chieu
+      AND nv.chuc_vu = v_chuc_vu;
+
+    -- Kiểm tra giới hạn
+    IF v_chuc_vu = 'ban_ve' AND so_luong >= 3 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Toi da 3 nhan vien ban ve trong 1 suat chieu';
+    END IF;
+
+    IF v_chuc_vu = 'ky_thuat' AND so_luong >= 3 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Toi da 3 nhan vien ky thuat trong 1 suat chieu';
+    END IF;
+
+END$$
+
+DELIMITER ;

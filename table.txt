@@ -1,0 +1,97 @@
+CREATE DATABASE IF NOT EXISTS rap_chieu_phim;
+USE rap_chieu_phim;
+
+CREATE TABLE IF NOT EXISTS Phim (
+    ma_phim INT NOT NULL AUTO_INCREMENT,
+    ten_phim VARCHAR(100) NOT NULL,
+    the_loai VARCHAR(50) NOT NULL,
+    thoi_luong INT NOT NULL,
+    dao_dien VARCHAR(100) NOT NULL,
+    gioi_han_do_tuoi VARCHAR(5) NOT NULL,
+    PRIMARY KEY (ma_phim)
+);
+
+CREATE TABLE IF NOT EXISTS PhongChieu (
+    ma_phong INT NOT NULL AUTO_INCREMENT,
+    loai_phong VARCHAR(10) NOT NULL,
+    so_luong_ghe INT NOT NULL,
+    tinh_trang_thiet_bi VARCHAR(50) NOT NULL,
+    PRIMARY KEY (ma_phong)
+);
+
+CREATE TABLE IF NOT EXISTS Ghe (
+    ma_ghe INT NOT NULL AUTO_INCREMENT,
+    ma_phong INT NOT NULL,
+    hang VARCHAR(5) NOT NULL,
+    cot INT NOT NULL,
+    loai_ghe VARCHAR(10) NOT NULL,
+    
+    UNIQUE (ma_phong, hang, cot),
+    PRIMARY KEY (ma_ghe, ma_phong),
+    FOREIGN KEY (ma_phong) 
+        REFERENCES PhongChieu (ma_phong) 
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS SuatChieu (
+    ma_suat_chieu INT NOT NULL AUTO_INCREMENT,
+    ma_phim INT NOT NULL,
+    ma_phong INT NOT NULL,
+    thoi_gian_bat_dau TIME NOT NULL,
+    ngay_chieu DATE NOT NULL,
+    PRIMARY KEY (ma_suat_chieu),
+    FOREIGN KEY (ma_phim) 
+        REFERENCES Phim (ma_phim) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (ma_phong) 
+        REFERENCES PhongChieu (ma_phong) 
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS KhachHang (
+    ma_khach_hang INT NOT NULL AUTO_INCREMENT,
+    ho_ten VARCHAR(100) NOT NULL,
+    so_dien_thoai VARCHAR(15) NOT NULL UNIQUE,
+    ngay_sinh DATE NOT NULL,
+    PRIMARY KEY (ma_khach_hang)
+);
+
+CREATE TABLE IF NOT EXISTS NhanVien (
+    ma_nhan_vien INT NOT NULL AUTO_INCREMENT,
+    ten VARCHAR(100) NOT NULL,
+    chuc_vu VARCHAR(50) NOT NULL,
+    PRIMARY KEY (ma_nhan_vien)
+);
+CREATE TABLE IF NOT EXISTS Ve (
+    ma_ve INT NOT NULL AUTO_INCREMENT,
+    ma_suat_chieu INT NOT NULL,
+    ma_ghe INT NOT NULL,
+    ma_phong INT NOT NULL,
+    ma_khach_hang INT,
+    gia_ve DECIMAL(10, 2) NOT NULL,
+    trang_thai VARCHAR(10) NOT NULL,
+    PRIMARY KEY (ma_ve),
+    FOREIGN KEY (ma_suat_chieu) 
+        REFERENCES SuatChieu (ma_suat_chieu) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (ma_ghe, ma_phong) 
+        REFERENCES Ghe (ma_ghe, ma_phong) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (ma_khach_hang) 
+        REFERENCES KhachHang (ma_khach_hang) 
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    UNIQUE (ma_suat_chieu, ma_ghe, ma_phong)
+);
+
+
+CREATE TABLE IF NOT EXISTS PhanCong (
+    ma_nhan_vien INT NOT NULL,
+    ma_suat_chieu INT NOT NULL,
+    PRIMARY KEY (ma_nhan_vien, ma_suat_chieu),
+    FOREIGN KEY (ma_nhan_vien) 
+        REFERENCES NhanVien (ma_nhan_vien) 
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (ma_suat_chieu) 
+        REFERENCES SuatChieu (ma_suat_chieu) 
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
